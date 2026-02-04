@@ -1,28 +1,66 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'contract.dart'; // <- Wir nutzen einfach den Dateinamen, da sie im selben Ordner liegt
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'contract.dart';
 
-// 1. Der "StateNotifier": Er verwaltet die Liste und ändert sie.
+// Der StateNotifier kümmert sich um die Kommunikation mit Supabase
 class ContractNotifier extends StateNotifier<List<Contract>> {
-  ContractNotifier() : super([
-    // Start-Daten (damit wir was sehen)
-    Contract(id: '1', title: 'Netflix Premium', price: 17.99, category: 'Abo', endDate: DateTime.now().add(const Duration(days: 30))),
-    Contract(id: '2', title: 'Telekom Mobilfunk', price: 49.99, category: 'Vertrag', endDate: DateTime.now().add(const Duration(days: 14))),
-    Contract(id: '3', title: 'Miete', price: 750.00, category: 'Wohnen', endDate: null),
-  ]);
-
-  // Funktion: Neuen Vertrag hinzufügen
-  void addContract(Contract contract) {
-    // Wir erstellen eine neue Liste mit allen alten Items + dem neuen
-    state = [...state, contract];
+  ContractNotifier() : super([]) {
+    // Sobald die App startet: Daten laden!
+    loadContracts();
   }
 
-  // Funktion: Vertrag löschen
-  void removeContract(String id) {
-    state = state.where((c) => c.id != id).toList();
+  // 1. DATEN LADEN (READ)
+  Future<void> loadContracts() async {
+    try {
+      final response = await Supabase.instance.client
+          .from('contracts')
+          .select()
+          .order('created_at', ascending: false); // Neueste oben
+
+      final data = response as List<dynamic>;
+
+      // Wir wandeln die JSON-Daten von der Datenbank in unsere Dart-Objekte um
+      state = data.map((map) => Contract(
+        id: map['id'],
+        title: map['title'],
+        price: (map['price'] as num).toDouble(), // Sicherstellen, dass es eine Zahl ist
+        category: map['category'] ?? 'Sonstiges',
+        endDate: map['end_date'] != null ? DateTime.parse(map['end_date']) : null,
+      )).toList();
+    } catch (e) {
+      print("Fehler beim Laden: $e");
+    }
+  }
+
+  // 2. DATEN HINZUFÜGEN (CREATE)
+  Future<void> addContract(Contract contract) async {
+    try {
+      await Supabase.instance.client.from('contracts').insert({
+        'title': contract.title,
+        'price': contract.price,
+        'category': contract.category,
+        'end_date': contract.endDate?.toIso8601String(),
+      });
+      
+      // Liste neu laden, damit der neue Eintrag sofort erscheint
+      await loadContracts(); 
+    } catch (e) {
+      print("Fehler beim Speichern: $e");
+    }
+  }
+
+  // 3. LÖSCHEN (DELETE)
+  Future<void> removeContract(String id) async {
+    try {
+      await Supabase.instance.client.from('contracts').delete().eq('id', id);
+      await loadContracts(); // Liste aktualisieren
+    } catch (e) {
+      print("Fehler beim Löschen: $e");
+    }
   }
 }
 
-// 2. Der "Provider": Das ist die Variable, die wir in der UI benutzen.
+// Der Provider bleibt gleich, damit die UI nichts vom Umbau merkt
 final contractProvider = StateNotifierProvider<ContractNotifier, List<Contract>>((ref) {
   return ContractNotifier();
 });
