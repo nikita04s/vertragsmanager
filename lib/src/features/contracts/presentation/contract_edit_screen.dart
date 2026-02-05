@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -5,9 +6,7 @@ import 'package:vertragsmanager/src/features/contracts/domain/contract.dart';
 import 'package:vertragsmanager/src/features/contracts/domain/contract_provider.dart';
 
 class ContractEditScreen extends ConsumerStatefulWidget {
-  // Wenn diese ID gesetzt ist, bearbeiten wir einen existierenden Vertrag
   final String? existingId; 
-  
   final String? initialTitle;
   final double? initialPrice;
   final DateTime? initialDate;
@@ -16,7 +15,7 @@ class ContractEditScreen extends ConsumerStatefulWidget {
 
   const ContractEditScreen({
     super.key,
-    this.existingId, // NEU
+    this.existingId,
     this.initialTitle,
     this.initialPrice,
     this.initialDate,
@@ -45,21 +44,17 @@ class _ContractEditScreenState extends ConsumerState<ContractEditScreen> {
   @override
   void initState() {
     super.initState();
-
     _titleController = TextEditingController(text: widget.initialTitle ?? '');
-
     String priceText = '';
     if (widget.initialPrice != null && widget.initialPrice! > 0) {
       priceText = widget.initialPrice!.toStringAsFixed(2).replaceAll('.', ',');
     }
     _priceController = TextEditingController(text: priceText);
-
     _selectedDate = widget.initialDate;
 
     if (widget.initialCategory != null && _categories.contains(widget.initialCategory)) {
       _selectedCategory = widget.initialCategory!;
     }
-    
     if (widget.initialIsMonthly != null) {
       _isMonthly = widget.initialIsMonthly!;
     }
@@ -72,128 +67,250 @@ class _ContractEditScreenState extends ConsumerState<ContractEditScreen> {
     super.dispose();
   }
 
-  Future<void> _pickDate() async {
+Future<void> _pickDate() async {
+    // iOS Style Date Picker (Modal Bottom Sheet)
     final initialDate = _selectedDate ?? DateTime.now().add(const Duration(days: 30));
-    final picked = await showDatePicker(
+    
+    showCupertinoModalPopup(
       context: context,
-      initialDate: initialDate,
-      firstDate: DateTime(2000), 
-      lastDate: DateTime(2030),
+      builder: (_) => Container(
+        height: 300,
+        color: Colors.white,
+        child: Column(
+          children: [
+            SizedBox(
+              height: 240,
+              child: CupertinoDatePicker(
+                mode: CupertinoDatePickerMode.date,
+                initialDateTime: initialDate,
+                minimumDate: DateTime(2000),
+                maximumDate: DateTime(2040),
+                onDateTimeChanged: (val) {
+                  // Hier setzen wir nur den State, schließen aber NICHTS
+                  setState(() => _selectedDate = val);
+                },
+              ),
+            ),
+            // HIER IST DIE ÄNDERUNG:
+            CupertinoButton(
+              child: const Text('Fertig'),
+              onPressed: () {
+                // WICHTIG: rootNavigator: true
+                // Das sagt Flutter: "Suche auf der allerhöchsten Ebene nach dem Popup"
+                if (mounted) {
+                  Navigator.of(context, rootNavigator: true).pop(); 
+                }
+              },
+            )
+          ],
+        ),
+      ),
     );
-    if (picked != null) {
-      setState(() => _selectedDate = picked);
-    }
   }
 
   void _saveContract() {
     if (_formKey.currentState!.validate()) {
       final price = double.tryParse(_priceController.text.replaceAll(',', '.')) ?? 0.0;
+      
+      final contract = Contract(
+        id: widget.existingId ?? DateTime.now().millisecondsSinceEpoch.toString(),
+        title: _titleController.text,
+        price: price,
+        category: _selectedCategory,
+        endDate: _selectedDate,
+        isMonthly: _isMonthly,
+      );
 
-      // ENTSCHEIDUNG: Update oder Neu?
+      // Speichern in Riverpod / Datenbank
       if (widget.existingId != null) {
-        // --- UPDATE ---
-        final updatedContract = Contract(
-          id: widget.existingId!, // Wir behalten die alte ID!
-          title: _titleController.text,
-          price: price,
-          category: _selectedCategory,
-          endDate: _selectedDate,
-          isMonthly: _isMonthly,
-        );
-        ref.read(contractProvider.notifier).updateContract(updatedContract);
+        ref.read(contractProvider.notifier).updateContract(contract);
       } else {
-        // --- NEU ERSTELLEN ---
-        final newContract = Contract(
-          id: DateTime.now().millisecondsSinceEpoch.toString(),
-          title: _titleController.text,
-          price: price,
-          category: _selectedCategory,
-          endDate: _selectedDate,
-          isMonthly: _isMonthly,
-        );
-        ref.read(contractProvider.notifier).addContract(newContract);
+        ref.read(contractProvider.notifier).addContract(contract);
       }
 
-      Navigator.of(context).pop();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(widget.existingId != null ? 'Änderungen gespeichert!' : 'Vertrag erstellt!')),
-      );
+      // NAVIGATION LOGIK
+      if (mounted) {
+        if (widget.existingId != null) {
+          // Fall A: Wir bearbeiten einen existierenden Vertrag.
+          // Wir kommen direkt von der Liste, also reicht ein Schritt zurück.
+          Navigator.of(context).pop();
+        } else {
+          // Fall B: Wir erstellen einen NEUEN Vertrag.
+          // Der Weg war: Liste -> Auswahl-Screen -> Edit-Screen.
+          // Wir wollen "Auswahl" und "Edit" überspringen und direkt zur Liste (Start).
+          Navigator.of(context).popUntil((route) => route.isFirst);
+        }
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFF2F2F7), // Grouped Background
       appBar: AppBar(
-        // Titel passt sich an
-        title: Text(widget.existingId != null ? "Vertrag bearbeiten" : "Neuer Vertrag"),
+        title: Text(widget.existingId != null ? "Bearbeiten" : "Neuer Vertrag"),
+        actions: [
+          TextButton(
+            onPressed: _saveContract,
+            child: const Text("Speichern", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          )
+        ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              TextFormField(
-                controller: _titleController,
-                decoration: const InputDecoration(labelText: 'Name des Vertrags', border: OutlineInputBorder()),
-                validator: (value) => value!.isEmpty ? 'Pflichtfeld' : null,
+      body: Form(
+        key: _formKey,
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            // SECTION 1: BASISDATEN
+            _buildSectionLabel("ALLGEMEIN"),
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
               ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _priceController,
-                decoration: const InputDecoration(labelText: 'Kosten (€)', suffixText: '€', border: OutlineInputBorder()),
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                validator: (value) => value!.isEmpty ? 'Pflichtfeld' : null,
+              child: Column(
+                children: [
+                  _buildTextInput(_titleController, "Name", "z.B. Netflix", isLast: false),
+                  const Divider(height: 1, indent: 16),
+                  _buildTextInput(_priceController, "Preis (€)", "0,00", isLast: true, isNumber: true),
+                ],
               ),
-              const SizedBox(height: 16),
-              Container(
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey.shade400),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: SwitchListTile(
-                  title: Text(_isMonthly ? "Zahlung: Monatlich" : "Zahlung: Jährlich"),
-                  subtitle: Text(_isMonthly ? "Preis pro Monat" : "Preis pro Jahr"),
-                  value: _isMonthly,
-                  activeColor: Theme.of(context).colorScheme.primary,
-                  onChanged: (val) => setState(() => _isMonthly = val),
-                ),
+            ),
+
+            const SizedBox(height: 24),
+
+            // SECTION 2: DETAILS
+            _buildSectionLabel("DETAILS"),
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
               ),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<String>(
-                value: _selectedCategory,
-                items: _categories.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
-                onChanged: (val) => setState(() => _selectedCategory = val!),
-                decoration: const InputDecoration(labelText: 'Kategorie', border: OutlineInputBorder()),
-              ),
-              const SizedBox(height: 16),
-              InkWell(
-                onTap: _pickDate,
-                child: InputDecorator(
-                  decoration: const InputDecoration(
-                    labelText: 'Nächste Kündigungsfrist / Ablauf',
-                    suffixIcon: Icon(Icons.calendar_today),
-                    border: OutlineInputBorder(),
+              child: Column(
+                children: [
+                  // Kategorie Picker (Custom Row)
+                  _buildRowButton(
+                    label: "Kategorie",
+                    value: _selectedCategory,
+                    onTap: () => _showCategoryPicker(),
+                    isLast: false,
                   ),
-                  child: Text(
-                    _selectedDate == null ? 'Bitte Datum wählen' : DateFormat('dd.MM.yyyy').format(_selectedDate!),
+                  const Divider(height: 1, indent: 16),
+                  
+                  // Zahlungsintervall Switch
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text("Monatliche Zahlung", style: TextStyle(fontSize: 16)),
+                        CupertinoSwitch(
+                          value: _isMonthly,
+                          activeColor: Theme.of(context).primaryColor,
+                          onChanged: (val) => setState(() => _isMonthly = val),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
+                  const Divider(height: 1, indent: 16),
+                  
+                  // Datum Picker
+                  _buildRowButton(
+                    label: "Kündigungsfrist",
+                    value: _selectedDate == null 
+                        ? "Auswählen" 
+                        : DateFormat('dd.MM.yyyy').format(_selectedDate!),
+                    onTap: _pickDate,
+                    isLast: true,
+                    textColor: _selectedDate == null ? Colors.grey : Colors.blue,
+                  ),
+                ],
               ),
-              const SizedBox(height: 32),
-              ElevatedButton(
-                onPressed: _saveContract,
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  backgroundColor: Theme.of(context).colorScheme.primary,
-                  foregroundColor: Colors.white,
-                ),
-                child: const Text("SPEICHERN", style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
+            
+            const SizedBox(height: 10),
+            const Padding(
+              padding: EdgeInsets.only(left: 16),
+              child: Text(
+                "Wir erinnern dich 30 Tage vor Ablauf der Kündigungsfrist.",
+                style: TextStyle(color: Colors.grey, fontSize: 13),
               ),
-            ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Hilfswidgets für den Clean Code
+  Widget _buildSectionLabel(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 16, bottom: 8),
+      child: Text(
+        text,
+        style: const TextStyle(fontSize: 13, color: Colors.grey, fontWeight: FontWeight.w500),
+      ),
+    );
+  }
+
+  Widget _buildTextInput(TextEditingController controller, String label, String placeholder, {bool isLast = false, bool isNumber = false}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: Row(
+        children: [
+          SizedBox(width: 100, child: Text(label, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500))),
+          Expanded(
+            child: TextFormField(
+              controller: controller,
+              keyboardType: isNumber ? const TextInputType.numberWithOptions(decimal: true) : TextInputType.text,
+              textAlign: TextAlign.right,
+              decoration: InputDecoration(
+                hintText: placeholder,
+                border: InputBorder.none,
+                hintStyle: TextStyle(color: Colors.grey.shade400),
+              ),
+              style: const TextStyle(fontSize: 16),
+              validator: (val) => val!.isEmpty ? "" : null, // Fehler werden nicht rot angezeigt, verhindert nur Speichern
+            ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRowButton({required String label, required String value, required VoidCallback onTap, bool isLast = false, Color? textColor}) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(label, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+            Row(
+              children: [
+                Text(value, style: TextStyle(fontSize: 16, color: textColor ?? Colors.grey.shade600)),
+                const SizedBox(width: 6),
+                const Icon(CupertinoIcons.chevron_right, size: 16, color: Colors.grey),
+              ],
+            )
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showCategoryPicker() {
+    showCupertinoModalPopup(
+      context: context,
+      builder: (_) => Container(
+        height: 250,
+        color: Colors.white,
+        child: CupertinoPicker(
+          itemExtent: 32,
+          onSelectedItemChanged: (index) => setState(() => _selectedCategory = _categories[index]),
+          children: _categories.map((c) => Text(c)).toList(),
         ),
       ),
     );

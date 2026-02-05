@@ -1,7 +1,8 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart'; // Importieren
+import 'package:image_picker/image_picker.dart';
 import 'package:vertragsmanager/src/features/contracts/presentation/contract_edit_screen.dart';
-import 'package:vertragsmanager/src/features/contracts/presentation/scan_contract_screen.dart'; // Importieren
+import 'package:vertragsmanager/src/features/contracts/presentation/scan_contract_screen.dart';
 
 class AddContractScreen extends StatelessWidget {
   const AddContractScreen({super.key});
@@ -9,53 +10,41 @@ class AddContractScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Neuen Vertrag hinzufügen")),
+      backgroundColor: const Color(0xFFF2F2F7),
+      appBar: AppBar(title: const Text("Hinzufügen")),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            // Button 1: Kamera Scan
-            _BigButton(
-              icon: Icons.camera_alt,
-              text: "Vertrag scannen (Kamera)",
-              color: Colors.blue.shade100,
-              onTap: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    // Wir geben 'ImageSource.camera' mit
-                    builder: (context) => const ScanContractScreen(source: ImageSource.camera),
-                  ),
-                );
-              },
+            const SizedBox(height: 10),
+            _ActionCard(
+              icon: CupertinoIcons.camera_viewfinder,
+              title: "Vertrag scannen",
+              subtitle: "Foto oder Dokument",
+              color: Colors.blue,
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (context) => const ScanContractScreen(source: ImageSource.camera)),
+              ),
             ),
-            const SizedBox(height: 16),
-            
-            // Button 2: Datei / Galerie Scan
-            _BigButton(
-              icon: Icons.image_search, // Icon geändert
-              text: "Bild/Screenshot hochladen",
-              color: Colors.green.shade100,
-              onTap: () {
-                 Navigator.of(context).push(
-                  MaterialPageRoute(
-                    // Wir geben 'ImageSource.gallery' mit
-                    builder: (context) => const ScanContractScreen(source: ImageSource.gallery),
-                  ),
-                );
-              },
+            const SizedBox(height: 12),
+            _ActionCard(
+              icon: CupertinoIcons.photo,
+              title: "Aus Galerie wählen",
+              subtitle: "Screenshot importieren",
+              color: Colors.purple,
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (context) => const ScanContractScreen(source: ImageSource.gallery)),
+              ),
             ),
-             const SizedBox(height: 16),
-
-            // Button 3: Manuell
-            _BigButton(
-              icon: Icons.edit,
-              text: "Manuell eingeben",
-              color: Colors.orange.shade100,
-              onTap: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(builder: (context) => const ContractEditScreen()),
-                );
-              },
+             const SizedBox(height: 12),
+            _ActionCard(
+              icon: CupertinoIcons.pencil,
+              title: "Manuell erstellen",
+              subtitle: "Daten selbst eingeben",
+              color: Colors.orange,
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (context) => const ContractEditScreen()),
+              ),
             ),
           ],
         ),
@@ -64,44 +53,45 @@ class AddContractScreen extends StatelessWidget {
   }
 }
 
-// ... _BigButton Klasse bleibt gleich wie vorher ...
-
-// Hilfs-Widget für die fetten Buttons
-class _BigButton extends StatelessWidget {
+class _ActionCard extends StatelessWidget {
   final IconData icon;
-  final String text;
+  final String title;
+  final String subtitle;
   final Color color;
   final VoidCallback onTap;
 
-  const _BigButton({
-    required this.icon,
-    required this.text,
-    required this.color,
-    required this.onTap,
+  const _ActionCard({
+    required this.icon, required this.title, required this.subtitle, required this.color, required this.onTap
   });
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        height: 120, // Schön groß wie in der Skizze
-        width: double.infinity,
-        decoration: BoxDecoration(
-          color: color,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.grey.shade300),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 2))],
+      ),
+      child: CupertinoButton(
+        padding: const EdgeInsets.all(20),
+        onPressed: onTap,
+        child: Row(
           children: [
-            Icon(icon, size: 40, color: Colors.black87),
-            const SizedBox(height: 8),
-            Text(
-              text,
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(color: color.withOpacity(0.1), shape: BoxShape.circle),
+              child: Icon(icon, color: color, size: 24),
             ),
+            const SizedBox(width: 16),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: Colors.black)),
+                Text(subtitle, style: TextStyle(fontSize: 14, color: Colors.grey[500])),
+              ],
+            ),
+            const Spacer(),
+            Icon(CupertinoIcons.chevron_right, color: Colors.grey[300]),
           ],
         ),
       ),

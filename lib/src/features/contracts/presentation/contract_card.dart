@@ -34,61 +34,73 @@ class ContractCard extends StatelessWidget {
     final currencyFormatter = NumberFormat.currency(locale: 'de_DE', symbol: '€');
     final nextPayment = getNextPaymentDate();
 
-    // Container statt Card für volle Kontrolle
+    // Clean Design: Weißer Hintergrund, kein sichtbarer Border, volle Breite im Container
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       decoration: BoxDecoration(
-        color: Colors.white, // Reinweiß
-        borderRadius: BorderRadius.circular(12), // Apple Radius
-        // Ganz subtiler Rahmen statt Schatten
-        border: Border.all(color: Colors.black.withOpacity(0.05)),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        // Ein Hauch von Schatten für Tiefe (Apple Style ist meistens flach, aber das hier hilft der Abhebung)
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
-      child: CupertinoButton( // Nutzt den iOS "Fade" Effekt beim Klicken
-        padding: const EdgeInsets.all(16.0),
+      child: CupertinoButton(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         onPressed: onTap,
+        // pressedOpacity simuliert den iOS Touch-Effekt
+        pressedOpacity: 0.6,
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            // LINKS
-            Row(
-              children: [
-                // Optional: Ein Icon-Container wie in den iOS Einstellungen
-                Container(
-                  width: 40, height: 40,
-                  decoration: BoxDecoration(
-                    color: _getCategoryColor(contract.category).withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(
-                    _getCategoryIcon(contract.category),
-                    color: _getCategoryColor(contract.category),
-                    size: 20,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      contract.title,
-                      style: const TextStyle(
-                        fontSize: 16, 
-                        fontWeight: FontWeight.w600,
-                        color: Colors.black,
-                        fontFamily: 'Inter'
-                      ),
+            // ICON BOX (Kleiner und runder)
+            Container(
+              width: 42, height: 42,
+              decoration: BoxDecoration(
+                color: _getCategoryColor(contract.category).withOpacity(0.1),
+                shape: BoxShape.circle, // Kreise wirken oft moderner als Quadrate
+              ),
+              child: Icon(
+                _getCategoryIcon(contract.category),
+                color: _getCategoryColor(contract.category),
+                size: 22,
+              ),
+            ),
+            const SizedBox(width: 14),
+            
+            // TITEL & KATEGORIE
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    contract.title,
+                    style: const TextStyle(
+                      fontSize: 16, 
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black,
+                      letterSpacing: -0.3,
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      contract.category,
-                      style: TextStyle(color: Colors.grey[500], fontSize: 13),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    contract.category,
+                    style: TextStyle(
+                      color: Colors.grey.shade500, 
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500
                     ),
-                  ],
-                ),
-              ],
+                  ),
+                ],
+              ),
             ),
             
-            // RECHTS
+            // PREIS & DATUM
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
@@ -96,42 +108,45 @@ class ContractCard extends StatelessWidget {
                   currencyFormatter.format(contract.price),
                   style: const TextStyle(
                     fontSize: 16, 
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black
+                    fontWeight: FontWeight.w600, // Preis ist wichtig
+                    color: Colors.black,
+                    fontFeatures: [FontFeature.tabularFigures()], // Zahlen untereinander bündig
                   ),
                 ),
-                Text(
-                  contract.isMonthly ? "mtl." : "jährl.",
-                  style: TextStyle(fontSize: 12, color: Colors.grey[400]),
-                ),
-                if (nextPayment != null)
-                   Padding(
-                     padding: const EdgeInsets.only(top: 4.0),
-                     child: Text(
-                        "Am ${DateFormat('dd.MM.').format(nextPayment)}",
-                        style: const TextStyle(
-                          fontSize: 11,
-                          color: Color(0xFF007AFF), // Apple Blau
-                          fontWeight: FontWeight.w500,
-                        ),
+                const SizedBox(height: 3),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                     if (nextPayment != null)
+                      Text(
+                        "${DateFormat('dd.MM.').format(nextPayment)} • ",
+                        style: TextStyle(fontSize: 12, color: Colors.grey.shade400),
                       ),
-                   ),
+                    Text(
+                      contract.isMonthly ? "mtl." : "jährl.",
+                      style: TextStyle(fontSize: 12, color: Colors.grey.shade400),
+                    ),
+                  ],
+                ),
               ],
             ),
+            
+            // Optional: Ein kleiner "Chevron" Pfeil wie in Einstellungen
+            const SizedBox(width: 8),
+            Icon(CupertinoIcons.chevron_right, size: 14, color: Colors.grey.shade300)
           ],
         ),
       ),
     );
   }
 
-  // Kleine Helfer für Farben und Icons (Apple Style)
   Color _getCategoryColor(String cat) {
     switch (cat) {
-      case 'Wohnen': return Colors.orange;
-      case 'Mobilität': return Colors.green;
-      case 'Abo': return const Color(0xFF007AFF);
-      case 'Versicherung': return Colors.purple;
-      default: return Colors.grey;
+      case 'Wohnen': return const Color(0xFFFF9500); // Apple Orange
+      case 'Mobilität': return const Color(0xFF34C759); // Apple Green
+      case 'Abo': return const Color(0xFF007AFF); // Apple Blue
+      case 'Versicherung': return const Color(0xFFAF52DE); // Apple Purple
+      default: return const Color(0xFF8E8E93); // Apple Grey
     }
   }
 
