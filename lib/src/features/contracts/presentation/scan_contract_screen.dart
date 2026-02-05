@@ -1,11 +1,11 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
+import 'package:vertragsmanager/src/features/contracts/domain/contract_parser.dart';
+import 'package:vertragsmanager/src/features/contracts/presentation/contract_edit_screen.dart';
 
 class ScanContractScreen extends StatefulWidget {
-  // Wir geben beim Starten mit, ob Kamera oder Galerie gewünscht ist
-  final ImageSource source;
+  final ImageSource source; 
 
   const ScanContractScreen({super.key, required this.source});
 
@@ -14,77 +14,84 @@ class ScanContractScreen extends StatefulWidget {
 }
 
 class _ScanContractScreenState extends State<ScanContractScreen> {
-  String _scannedText = "Starte Analyse...";
-  bool _isScanning = true; // Wir starten sofort
+  String _statusText = "Modul wird geladen...";
 
   @override
   void initState() {
     super.initState();
-    // Sofort beim Öffnen die Kamera/Galerie starten
-    _scanDocument();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _processFile();
+    });
   }
 
-  Future<void> _scanDocument() async {
+  Future<void> _processFile() async {
     final ImagePicker picker = ImagePicker();
+    
+    setState(() {
+      _statusText = widget.source == ImageSource.camera 
+          ? "Kamera wird gestartet..." 
+          : "Galerie wird geöffnet...";
+    });
+
     try {
-      final XFile? photo = await picker.pickImage(source: widget.source);
+      final XFile? image = await picker.pickImage(source: widget.source);
       
-      if (photo == null) {
-        // Wenn Nutzer abbricht, zurück zum Menü
-        if (mounted) Navigator.of(context).pop();
+      if (image == null) {
+        if (mounted) Navigator.of(context).pop(); 
         return;
       }
 
-      setState(() {
-        _isScanning = true;
-        _scannedText = "Analysiere Bild...";
-      });
+      setState(() => _statusText = "Lese Text aus Bild...");
 
-      final inputImage = InputImage.fromFilePath(photo.path);
+      final inputImage = InputImage.fromFilePath(image.path);
       final textRecognizer = TextRecognizer(script: TextRecognitionScript.latin);
       final RecognizedText recognizedText = await textRecognizer.processImage(inputImage);
-
-      if (mounted) {
-        setState(() {
-          _scannedText = recognizedText.text.isEmpty 
-              ? "Kein Text erkannt." 
-              : recognizedText.text;
-          _isScanning = false;
-        });
-      }
+      
+      String fullText = recognizedText.text;
       textRecognizer.close();
+
+      setState(() => _statusText = "Suche Vertragsdaten...");
+      
+      // 1. Parser aufrufen (Hier holen wir alle Infos)
+      final String parsedTitle = ContractParser.parseTitle(fullText);
+      final double parsedPrice = ContractParser.parsePrice(fullText);
+      final DateTime? parsedDate = ContractParser.parseDate(fullText);
+      final String parsedCategory = ContractParser.parseCategory(parsedTitle);
+      
+      // NEU: Wir prüfen, ob es monatlich oder jährlich ist
+      final bool parsedIsMonthly = ContractParser.parseIsMonthly(fullText);
+
+      if (!mounted) return;
+
+      // 2. Alles an den Edit-Screen übergeben
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (context) => ContractEditScreen(
+            initialTitle: parsedTitle,
+            initialPrice: parsedPrice,
+            initialDate: parsedDate,
+            initialCategory: parsedCategory,
+            initialIsMonthly: parsedIsMonthly, // NEU: Hier geben wir die Info weiter
+          ),
+        ),
+      );
+
     } catch (e) {
-      if (mounted) {
-        setState(() {
-          _scannedText = "Fehler: $e";
-          _isScanning = false;
-        });
-      }
+      setState(() => _statusText = "Fehler: $e");
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Vertrag wird analysiert")),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
+      appBar: AppBar(title: const Text("Scan läuft")),
+      body: Center(
         child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            if (_isScanning) const LinearProgressIndicator(),
+            const CircularProgressIndicator(),
             const SizedBox(height: 20),
-            Expanded(
-              child: Container(
-                padding: const EdgeInsets.all(12),
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  color: Colors.grey[100],
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.grey[300]!),
-                ),
-                child: SingleChildScrollView(child: Text(_scannedText)),
-              ),
-            ),
+            Text(_statusText, style: const TextStyle(fontSize: 16)),
           ],
         ),
       ),

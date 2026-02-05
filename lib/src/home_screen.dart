@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:vertragsmanager/src/features/contracts/presentation/contracts_screen.dart';
 import 'package:vertragsmanager/src/features/dashboard/presentation/dashboard_screen.dart';
@@ -21,36 +22,40 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _screens,
-      ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _currentIndex,
-        onDestinationSelected: (index) {
+    // CupertinoTabScaffold ist DAS Widget für echte iOS Navigation
+    return CupertinoTabScaffold(
+      tabBar: CupertinoTabBar(
+        backgroundColor: const Color(0xCCF2F2F7), // Leicht transparent
+        activeColor: const Color(0xFF007AFF), // Apple Blau
+        inactiveColor: Colors.grey,
+        currentIndex: _currentIndex,
+        onTap: (index) {
           setState(() {
             _currentIndex = index;
           });
         },
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.dashboard_outlined),
-            selectedIcon: Icon(Icons.dashboard),
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(CupertinoIcons.chart_pie),
             label: 'Dashboard',
           ),
-          NavigationDestination(
-            icon: Icon(Icons.description_outlined),
-            selectedIcon: Icon(Icons.description),
+          BottomNavigationBarItem(
+            icon: Icon(CupertinoIcons.doc_text),
             label: 'Verträge',
           ),
-          NavigationDestination(
-            icon: Icon(Icons.settings_outlined),
-            selectedIcon: Icon(Icons.settings),
+          BottomNavigationBarItem(
+            icon: Icon(CupertinoIcons.settings),
             label: 'Einstellungen',
           ),
         ],
       ),
+      tabBuilder: (context, index) {
+        return CupertinoTabView(
+          builder: (context) {
+            return _screens[index];
+          },
+        );
+      },
     );
   }
 }

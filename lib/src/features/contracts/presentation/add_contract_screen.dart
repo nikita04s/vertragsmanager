@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart'; // Importieren
 import 'package:vertragsmanager/src/features/contracts/presentation/contract_edit_screen.dart';
+import 'package:vertragsmanager/src/features/contracts/presentation/scan_contract_screen.dart'; // Importieren
 
 class AddContractScreen extends StatelessWidget {
   const AddContractScreen({super.key});
@@ -12,21 +14,39 @@ class AddContractScreen extends StatelessWidget {
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            // Button 1: Kamera
+            // Button 1: Kamera Scan
             _BigButton(
               icon: Icons.camera_alt,
-              text: "Kamera Scan",
+              text: "Vertrag scannen (Kamera)",
               color: Colors.blue.shade100,
               onTap: () {
-                // Später: Kamera Logik
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("Kamera-Feature kommt später!")),
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    // Wir geben 'ImageSource.camera' mit
+                    builder: (context) => const ScanContractScreen(source: ImageSource.camera),
+                  ),
                 );
               },
             ),
             const SizedBox(height: 16),
             
-            // Button 2: Manuell
+            // Button 2: Datei / Galerie Scan
+            _BigButton(
+              icon: Icons.image_search, // Icon geändert
+              text: "Bild/Screenshot hochladen",
+              color: Colors.green.shade100,
+              onTap: () {
+                 Navigator.of(context).push(
+                  MaterialPageRoute(
+                    // Wir geben 'ImageSource.gallery' mit
+                    builder: (context) => const ScanContractScreen(source: ImageSource.gallery),
+                  ),
+                );
+              },
+            ),
+             const SizedBox(height: 16),
+
+            // Button 3: Manuell
             _BigButton(
               icon: Icons.edit,
               text: "Manuell eingeben",
@@ -37,25 +57,14 @@ class AddContractScreen extends StatelessWidget {
                 );
               },
             ),
-            const SizedBox(height: 16),
-
-            // Button 3: Datei
-            _BigButton(
-              icon: Icons.upload_file,
-              text: "Datei hochladen",
-              color: Colors.green.shade100,
-              onTap: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("Datei-Upload kommt später!")),
-                );
-              },
-            ),
           ],
         ),
       ),
     );
   }
 }
+
+// ... _BigButton Klasse bleibt gleich wie vorher ...
 
 // Hilfs-Widget für die fetten Buttons
 class _BigButton extends StatelessWidget {
